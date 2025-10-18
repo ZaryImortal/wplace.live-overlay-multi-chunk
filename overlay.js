@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay Multi-chunk + HUD By Zary
 // @namespace    http://tampermonkey.net/
-// @version      0.7.10
+// @version      0.7.11
 // @description  Overlay multi-chunk para Wplace.live com HUD, seletor de overlay, botão "Ir para Overlay" e filtro de cores faltantes.
 // @author       Zary
 // @match        https://wplace.live/*
@@ -35,7 +35,8 @@
         "Yellow space",
         "Sonic",
         "Creative Space",
-        "Mini Cristo"
+        "Mini Cristo",
+        "Ger Patrioten"
     ];
     const overlayCoords = [
         { lat: -23.6260, lng: -46.8656 },
@@ -48,7 +49,8 @@
         { lat: -23.7276, lng: -46.8653 },
         { lat: -23.6880, lng: -46.9285 },
         { lat: -23.5834, lng: -46.9270 },
-        { lat: -23.6679, lng: -46.8382 }
+        { lat: -23.6679, lng: -46.8382 },
+        { lat: 52.0277, lng: 12.6946 }
     ];
 
     function resetProgress() {
