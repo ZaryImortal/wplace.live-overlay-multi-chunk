@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay Multi-chunk + HUD By Zary
 // @namespace    http://tampermonkey.net/
-// @version      0.7.11
+// @version      0.7.12
 // @description  Overlay multi-chunk para Wplace.live com HUD, seletor de overlay, botão "Ir para Overlay" e filtro de cores faltantes.
 // @author       Zary
 // @match        https://wplace.live/*
@@ -374,7 +374,7 @@
     }
 
     function patchUI() {
-        const buttonContainer = document.querySelector("div.gap-4:nth-child(1) > div:nth-child(2)");
+        const buttonContainer = document.querySelector("div.flex.flex-col.gap-4.items-center:nth-child(1) > div:nth-child(2)");
         if (!buttonContainer) return;
 
         // seletor overlay
