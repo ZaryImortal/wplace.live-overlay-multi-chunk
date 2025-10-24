@@ -374,7 +374,7 @@
     }
 
     function patchUI() {
-        const buttonContainer = document.querySelector("div.flex.flex-col.items-center:nth-child(1) > div:nth-child(2)");
+        const buttonContainer = document.querySelector("div.gap-4:nth-child(1) > div:nth-child(2)");
         if (!buttonContainer) return;
 
         // seletor overlay
