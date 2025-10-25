@@ -1,20 +1,111 @@
 // ==UserScript==
 // @name         Wplace Overlay Multi-chunk + HUD By Zary
 // @namespace    http://tampermonkey.net/
-// @version      0.7.13
-// @description  Overlay multi-chunk para Wplace.live com HUD, seletor de overlay, botão "Ir para Overlay" e filtro de cores faltantes.
+// @version      0.8
+// @description  Overlay multi-chunk para Wplace.live com HUD, seletor de overlay, botão "Ir para Overlay", cache local e alerta de atualização automática.
 // @author       Zary
 // @match        https://wplace.live/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=zarystore.net
 // @license      MIT
 // @grant        none
+// @connect      raw.githubusercontent.com
+// @connect      i.imgur.com
+// @connect      i.ibb.co
 // @updateURL    https://raw.githubusercontent.com/ZaryImortal/wplace.live-overlay-multi-chunk/refs/heads/main/overlay.js
 // @downloadURL  https://raw.githubusercontent.com/ZaryImortal/wplace.live-overlay-multi-chunk/refs/heads/main/overlay.js
 // ==/UserScript==
 
-
 (async function () {
     'use strict';
+
+    const CURRENT_VERSION = "0.8";
+    const CACHE_KEY = "wplace_overlay_cache_v1";
+    const CACHE_TIME = 24 * 60 * 60 * 1000; // 24h
+    const CACHE_VERSION_KEY = "wplace_overlay_script_version";
+
+    // 🧹 Limpa cache se a versão local mudou
+    const cachedVersion = localStorage.getItem(CACHE_VERSION_KEY);
+    if (cachedVersion !== CURRENT_VERSION) {
+        console.log(`[Overlay] Nova versão detectada (${CURRENT_VERSION}), limpando cache local...`);
+        localStorage.removeItem(CACHE_KEY);
+        localStorage.setItem(CACHE_VERSION_KEY, CURRENT_VERSION);
+    }
+
+    // 🔍 Função utilitária para comparar versões sem erro (ex: 0.7.13 < 0.7.14)
+    function compareVersions(v1, v2) {
+        const a = v1.split('.').map(Number);
+        const b = v2.split('.').map(Number);
+        const len = Math.max(a.length, b.length);
+        for (let i = 0; i < len; i++) {
+            const diff = (a[i] || 0) - (b[i] || 0);
+            if (diff !== 0) return diff;
+        }
+        return 0;
+    }
+
+    // 🔍 Checa se há nova versão (apenas se maior)
+    async function checkForUpdate() {
+        try {
+            const meta = await fetch("https://raw.githubusercontent.com/ZaryImortal/wplace.live-overlay-multi-chunk/refs/heads/main/overlay.js?" + Date.now());
+            const text = await meta.text();
+            const match = text.match(/@version\s+([\d.]+)/);
+            if (!match) return;
+
+            const remoteVersion = match[1];
+            if (compareVersions(remoteVersion, CURRENT_VERSION) > 0) {
+                const updateMsg = document.createElement("div");
+                updateMsg.textContent = `Nova versão ${remoteVersion} disponível! Atualize o script.`;
+                updateMsg.style.position = "fixed";
+                updateMsg.style.top = "15px";
+                updateMsg.style.right = "15px";
+                updateMsg.style.zIndex = "999999";
+                updateMsg.style.background = "linear-gradient(90deg, #ff9800, #ff5722)";
+                updateMsg.style.color = "white";
+                updateMsg.style.padding = "10px 16px";
+                updateMsg.style.borderRadius = "8px";
+                updateMsg.style.boxShadow = "0 0 8px rgba(0,0,0,0.4)";
+                updateMsg.style.fontFamily = "monospace";
+                updateMsg.style.fontSize = "14px";
+                updateMsg.style.transition = "opacity 1s";
+                document.body.appendChild(updateMsg);
+                setTimeout(() => updateMsg.style.opacity = "0", 4000);
+                setTimeout(() => updateMsg.remove(), 5000);
+            }
+        } catch (err) {
+            console.warn("Falha ao checar atualização:", err);
+        }
+    }
+
+    await checkForUpdate();
+
+    // 🧠 Busca imagens.js com cache local de 24h
+    async function fetchData() {
+        try {
+            const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+            const now = Date.now();
+
+            if (cached && (now - cached.timestamp < CACHE_TIME) && cached.data?.length) {
+                console.log("[Overlay] Usando cache local de imagens.js");
+                return cached.data;
+            }
+
+            console.log("[Overlay] Baixando novo imagens.js do GitHub...");
+            const res = await fetch("https://raw.githubusercontent.com/ZaryImortal/wplace.live-overlay-multi-chunk/refs/heads/main/imagens.js?" + now);
+            const json = await res.json();
+
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, data: json }));
+            localStorage.setItem(CACHE_VERSION_KEY, CURRENT_VERSION);
+            return json;
+        } catch (err) {
+            console.error("Erro ao buscar imagens.js:", err);
+            const fallback = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+            if (fallback?.data) {
+                console.warn("[Overlay] Usando cache anterior por erro de rede.");
+                return fallback.data;
+            }
+            throw err;
+        }
+    }
 
     const CHUNK_WIDTH = 1000;
     const CHUNK_HEIGHT = 1000;
@@ -22,7 +113,7 @@
     const overlaysRaw = await fetchData();
     let currentOverlayId = null;
     let overlayProgress = {};
-    const selectedColors = []; // filtro de cores
+    const selectedColors = [];
 
     const overlayNames = [
         "Onça",
@@ -58,7 +149,7 @@
         updateHUD();
     }
 
-    // prepara overlays como canvas únicos
+    // 🔧 Prepara overlays como canvas únicos
     for (const obj of overlaysRaw) {
         const { img, width, height } = await loadImage(obj.url);
         const startX = obj.chunk[0] * CHUNK_WIDTH + obj.coords[0];
@@ -76,7 +167,7 @@
         obj.sourceCtx = sourceCtx;
     }
 
-    // HUD container
+    // 🧭 HUD
     const hud = document.createElement("div");
     hud.style.position = "fixed";
     hud.style.top = "50px";
@@ -99,7 +190,6 @@
     hud.style.resize = "both";
     document.body.appendChild(hud);
 
-    // Cabeçalho HUD
     const hudHeader = document.createElement("div");
     hudHeader.style.display = "flex";
     hudHeader.style.justifyContent = "space-between";
@@ -135,23 +225,16 @@
 
     minimizeBtn.onclick = () => {
         hudMinimized = !hudMinimized;
-
         if (hudMinimized) {
-            // salva o tamanho atual
             prevWidth = hud.style.width;
             prevHeight = hud.style.height;
-
-            // volta para o tamanho inicial definido no script
             hud.style.width = "200px";
             hud.style.height = "80px";
-
             hudContent.style.display = "none";
             minimizeBtn.textContent = "+";
         } else {
-            // restaura o tamanho anterior
             hud.style.width = prevWidth;
             hud.style.height = prevHeight;
-
             hudContent.style.display = "block";
             minimizeBtn.textContent = "–";
         }
@@ -229,11 +312,27 @@
         }
     }
 
-    // Atualiza HUD a cada 30s
     setInterval(updateHUD, 30000);
 
-    function rgbaToCss(r, g, b, a) {
-        return `rgba(${r},${g},${b},${a/255})`;
+    function rgbaToCss(r,g,b,a){ return `rgba(${r},${g},${b},${a/255})`; }
+
+    function blobToImage(blob){
+        return new Promise((resolve,reject)=>{
+            const img = new Image();
+            img.onload=()=>resolve(img);
+            img.onerror=reject;
+            img.src=URL.createObjectURL(blob);
+        });
+    }
+
+    function loadImage(src){
+        return new Promise((resolve,reject)=>{
+            const img = new Image();
+            img.crossOrigin="anonymous";
+            img.onload=()=>resolve({img,width:img.naturalWidth,height:img.naturalHeight});
+            img.onerror=reject;
+            img.src=src;
+        });
     }
 
     // Intercepta fetch
@@ -257,23 +356,19 @@
                 const chunkOffsetX = cx * CHUNK_WIDTH;
                 const chunkOffsetY = cy * CHUNK_HEIGHT;
 
-                // limites do overlay
                 const overlayStartX = overlay.chunk[0] * CHUNK_WIDTH + overlay.coords[0];
                 const overlayStartY = overlay.chunk[1] * CHUNK_HEIGHT + overlay.coords[1];
                 const overlayEndX = overlayStartX + overlay.width;
                 const overlayEndY = overlayStartY + overlay.height;
 
-                // limites do chunk atual
                 const chunkEndX = chunkOffsetX + CHUNK_WIDTH;
                 const chunkEndY = chunkOffsetY + CHUNK_HEIGHT;
 
-                // checa interseção real
                 if (chunkOffsetX >= overlayEndX || chunkEndX <= overlayStartX ||
                     chunkOffsetY >= overlayEndY || chunkEndY <= overlayStartY) {
-                    return target.apply(thisArg, argList); // sem interseção
+                    return target.apply(thisArg, argList);
                 }
 
-                // pega o original
                 const originalResponse = await target.apply(thisArg, argList);
                 const originalBlob = await originalResponse.blob();
                 const originalImage = await blobToImage(originalBlob);
@@ -286,7 +381,6 @@
                 const d1 = originalData.data;
                 const dr = resultData.data;
 
-                // calcula região a ser desenhada
                 const srcX = Math.max(0, chunkOffsetX - overlayStartX);
                 const srcY = Math.max(0, chunkOffsetY - overlayStartY);
                 const drawX = Math.max(0, overlayStartX - chunkOffsetX);
@@ -294,7 +388,6 @@
                 const drawW = Math.min(CHUNK_WIDTH - drawX, overlay.width - srcX);
                 const drawH = Math.min(CHUNK_HEIGHT - drawY, overlay.height - srcY);
 
-                // extrai só a parte válida do overlay
                 const overlayPart = overlay.sourceCtx.getImageData(srcX, srcY, drawW, drawH).data;
 
                 let greenPixels = 0;
@@ -319,7 +412,7 @@
                                 dr[destIndex] = 0;
                                 dr[destIndex + 1] = 255;
                                 dr[destIndex + 2] = 0;
-                               dr[destIndex + 3] = 255;
+                                dr[destIndex + 3] = 255;
                                 greenPixels++;
                             } else {
                                 const rgbaColor = rgbaToCss(r,g,b,a);
@@ -349,35 +442,11 @@
         }
     });
 
-    function fetchData() {
-        return fetch("https://raw.githubusercontent.com/ZaryImortal/wplace.live-overlay-multi-chunk/refs/heads/main/imagens.js?" + Date.now())
-            .then(res => res.json());
-    }
-
-    function blobToImage(blob){
-        return new Promise((resolve,reject)=>{
-            const img = new Image();
-            img.onload=()=>resolve(img);
-            img.onerror=reject;
-            img.src=URL.createObjectURL(blob);
-        });
-    }
-
-    function loadImage(src){
-        return new Promise((resolve,reject)=>{
-            const img = new Image();
-            img.crossOrigin="anonymous";
-            img.onload=()=>resolve({img,width:img.naturalWidth,height:img.naturalHeight});
-            img.onerror=reject;
-            img.src=src;
-        });
-    }
-
+    // Patch da UI (seletores e botão "Ir para Overlay")
     function patchUI() {
         const buttonContainer = document.querySelector("div.gap-4:nth-child(1) > div:nth-child(2)");
         if (!buttonContainer) return;
 
-        // seletor overlay
         let overlaySelector = document.getElementById("overlay-selector");
         if (!overlaySelector) {
             overlaySelector = document.createElement("select");
@@ -482,5 +551,4 @@
     }
 
     patchUI();
-
 })();
