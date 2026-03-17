@@ -1,7 +1,7 @@
 [
   { "url": "https://i.imgur.com/HNeKffU.png", "chunk": [756, 1162], "coords": [670, 232] },
   { "url": "https://i.imgur.com/oI1HPYI.png", "chunk": [761, 1158], "coords": [713, 699] },
-  { "url": "https://i.ibb.co/CywcvrZ/Atualizado-18.png", "chunk": [753, 1156], "coords": [270, 465] },
+  { "url": "https://i.ibb.co/KprFRc66/Atualizado-20-final-2-MESMO.png", "chunk": [753, 1156], "coords": [270, 465] },
   { "url": "https://i.imgur.com/Z3PhaJH.png", "chunk": [777, 1152], "coords": [204, 941] },
   { "url": "https://i.imgur.com/aGKmeNy.png", "chunk": [762, 1165], "coords": [105, 521] },
   { "url": "https://i.imgur.com/FwZHDQx.png", "chunk": [762, 1179], "coords": [866, 192] },
