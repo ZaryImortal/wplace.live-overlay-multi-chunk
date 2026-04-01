@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay Multi-chunk + HUD By Zary
 // @namespace    http://tampermonkey.net/
-// @version      0.8.5
+// @version      0.8.6
 // @description  Overlay multi-chunk para Wplace.live com HUD, seletor de overlay, botão "Ir para Overlay", cache local e alerta de atualização automática.
 // @author       Zary
 // @match        https://wplace.live/*
@@ -18,7 +18,7 @@
 (async function () {
     'use strict';
 
-    const CURRENT_VERSION = "0.8.5";
+    const CURRENT_VERSION = "0.8.6";
     const CACHE_KEY = "wplace_overlay_cache_v1";
     const CACHE_TIME = 24 * 60 * 60 * 1000; // 24h
     const CACHE_VERSION_KEY = "wplace_overlay_script_version";
@@ -444,78 +444,105 @@
         }
     });
 
-    // Patch da UI (seletores e botão "Ir para Overlay")
-    function patchUI() {
-        const buttonContainer = document.querySelector("div.gap-4:nth-child(1) > div:nth-child(2)");
-        if (!buttonContainer) return;
-
-        let overlaySelector = document.getElementById("overlay-selector");
-        if (!overlaySelector) {
-            overlaySelector = document.createElement("select");
-            overlaySelector.id = "overlay-selector";
-            overlaySelector.style.marginTop = "6px";
-            overlaySelector.style.padding = "4px 6px";
-            overlaySelector.style.backgroundColor = "#222";
-            overlaySelector.style.color = "white";
-            overlaySelector.style.border = "none";
-            overlaySelector.style.borderRadius = "4px";
-            overlaySelector.style.fontSize = "13px";
-            overlaySelector.title = "Selecione o overlay";
-
-            const noneOption = document.createElement("option");
-            noneOption.value = "";
-            noneOption.textContent = "Nenhum overlay";
-            overlaySelector.appendChild(noneOption);
-
-            overlaysRaw.forEach((overlay, idx) => {
-                const opt = document.createElement("option");
-                opt.value = idx;
-                const name = overlayNames[idx] ?? `Overlay #${idx + 1}`;
-                opt.textContent = name;
-                overlaySelector.appendChild(opt);
-            });
-
-            overlaySelector.value = currentOverlayId !== null ? currentOverlayId : "";
-
-            overlaySelector.addEventListener("change", (e) => {
-                const val = e.target.value;
-                if (val === "") {
-                    currentOverlayId = null;
-                } else {
-                    currentOverlayId = Number(val);
-                    resetProgress();
-                    updateHUD();
-                    patchGoToOverlayButton();
+    // 🕐 Aguarda o container aparecer na DOM antes de injetar
+    function waitForContainer(callback, timeout = 15000) {
+        const start = Date.now();
+        const interval = setInterval(() => {
+            // Seletor exato baseado no HTML fonte atual do site
+            const el = document.querySelector("div.absolute.top-2.left-2.z-30.flex.flex-col.gap-3")
+                    || document.querySelector('button[title="Overlays"]')?.parentElement
+                    || document.querySelector('button[title="Refresh"]')?.parentElement
+                    || document.querySelector("button.btn-square")?.parentElement;
+            if (el) {
+                clearInterval(interval);
+                console.log("[Overlay] Container encontrado:", el);
+                callback(el);
+            } else if (Date.now() - start > timeout) {
+                clearInterval(interval);
+                console.warn("[Overlay] Container não encontrado após timeout. Usando fallback fixo.");
+                let fallback = document.getElementById("overlay-fallback-container");
+                if (!fallback) {
+                    fallback = document.createElement("div");
+                    fallback.id = "overlay-fallback-container";
+                    fallback.style.position = "fixed";
+                    fallback.style.top = "10px";
+                    fallback.style.left = "10px";
+                    fallback.style.zIndex = "99998";
+                    fallback.style.display = "flex";
+                    fallback.style.flexDirection = "column";
+                    fallback.style.gap = "4px";
+                    document.body.appendChild(fallback);
                 }
-            });
+                callback(fallback);
+            }
+        }, 300);
+    }
 
-            buttonContainer.appendChild(overlaySelector);
-        }
+    function patchUI(buttonContainer) {
+        if (document.getElementById("overlay-selector")) return; // já injetado
 
+        const overlaySelector = document.createElement("select");
+        overlaySelector.id = "overlay-selector";
+        overlaySelector.style.marginTop = "6px";
+        overlaySelector.style.padding = "4px 6px";
+        overlaySelector.style.backgroundColor = "#222";
+        overlaySelector.style.color = "white";
+        overlaySelector.style.border = "none";
+        overlaySelector.style.borderRadius = "4px";
+        overlaySelector.style.fontSize = "13px";
+        overlaySelector.title = "Selecione o overlay";
+
+        const noneOption = document.createElement("option");
+        noneOption.value = "";
+        noneOption.textContent = "Nenhum overlay";
+        overlaySelector.appendChild(noneOption);
+
+        overlaysRaw.forEach((overlay, idx) => {
+            const opt = document.createElement("option");
+            opt.value = idx;
+            opt.textContent = overlayNames[idx] ?? `Overlay #${idx + 1}`;
+            overlaySelector.appendChild(opt);
+        });
+
+        overlaySelector.value = currentOverlayId !== null ? currentOverlayId : "";
+        overlaySelector.addEventListener("change", (e) => {
+            const val = e.target.value;
+            if (val === "") {
+                currentOverlayId = null;
+            } else {
+                currentOverlayId = Number(val);
+                resetProgress();
+                updateHUD();
+                patchGoToOverlayButton();
+            }
+        });
+
+        buttonContainer.appendChild(overlaySelector);
         patchGoToOverlayButton();
     }
 
     function patchGoToOverlayButton() {
-        let gotoButton = document.getElementById("goto-overlay-btn");
-        if (!gotoButton) {
-            gotoButton = document.createElement("button");
-            gotoButton.id = "goto-overlay-btn";
-            gotoButton.textContent = "Ir para Overlay";
-            gotoButton.style.marginLeft = "6px";
-            gotoButton.style.padding = "4px 8px";
-            gotoButton.style.borderRadius = "4px";
-            gotoButton.style.border = "none";
-            gotoButton.style.backgroundColor = "#0e0e0e7f";
-            gotoButton.style.color = "white";
-            gotoButton.style.cursor = "pointer";
-            document.querySelector("#overlay-selector").after(gotoButton);
+        if (document.getElementById("goto-overlay-btn")) return;
+        const selectorEl = document.getElementById("overlay-selector");
+        if (!selectorEl) return;
 
-            gotoButton.addEventListener("click", () => {
-                if (currentOverlayId === null) return;
-                const coords = overlayCoords[currentOverlayId] ?? { lat: 0, lng: 0 };
-                window.location.href = `https://wplace.live/?lat=${coords.lat}&lng=${coords.lng}`;
-            });
-        }
+        const gotoButton = document.createElement("button");
+        gotoButton.id = "goto-overlay-btn";
+        gotoButton.textContent = "Ir para Overlay";
+        gotoButton.style.marginLeft = "6px";
+        gotoButton.style.padding = "4px 8px";
+        gotoButton.style.borderRadius = "4px";
+        gotoButton.style.border = "none";
+        gotoButton.style.backgroundColor = "#0e0e0e7f";
+        gotoButton.style.color = "white";
+        gotoButton.style.cursor = "pointer";
+        selectorEl.after(gotoButton);
+
+        gotoButton.addEventListener("click", () => {
+            if (currentOverlayId === null) return;
+            const coords = overlayCoords[currentOverlayId] ?? { lat: 0, lng: 0 };
+            window.location.href = `https://wplace.live/?lat=${coords.lat}&lng=${coords.lng}`;
+        });
     }
 
     // HUD arrastável
@@ -544,13 +571,14 @@
         }
     });
 
-    const targetNode = document.querySelector("div.gap-4:nth-child(1)");
-    if (targetNode) {
-        const observer = new MutationObserver(() => {
-            patchUI();
-        });
-        observer.observe(targetNode, { childList: true, subtree: true });
-    }
+    // Observer para recriar se o container for removido (ex: navegação SPA)
+    const observer = new MutationObserver(() => {
+        if (!document.getElementById("overlay-selector")) {
+            waitForContainer(patchUI);
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    patchUI();
+    // Inicia esperando o container aparecer na DOM
+    waitForContainer(patchUI);
 })();
