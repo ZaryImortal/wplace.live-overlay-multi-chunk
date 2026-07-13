@@ -127,7 +127,8 @@
         "Creative Space",
         "Ger Patrioten",
         "Valete",
-        "São Paulo"
+        "São Paulo",
+        "Missão 2"
     ];
     const overlayCoords = [
         { lat: -23.6260, lng: -46.8656 },
@@ -141,6 +142,7 @@
         { lat: -23.5834, lng: -46.9270 },
         { lat: 52.0277, lng: 12.6946 },
         { lat: -24.0308, lng: -46.9558 },
+        { lat: -23.6212, lng: -46.7563},
         { lat: -23.6212, lng: -46.7563}
     ];
 
