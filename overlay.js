@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay Multi-chunk + HUD By Zary
 // @namespace    http://tampermonkey.net/
-// @version      0.8.7
+// @version      0.8.8
 // @description  Overlay multi-chunk para Wplace.live com HUD, seletor de overlay, botão "Ir para Overlay", cache local e alerta de atualização automática.
 // @author       Zary
 // @match        https://wplace.live/*
@@ -18,7 +18,7 @@
 (async function () {
     'use strict';
 
-    const CURRENT_VERSION = "0.8.7";
+    const CURRENT_VERSION = "0.8.8";
     const CACHE_KEY = "wplace_overlay_cache_v1";
     const CACHE_TIME = 24 * 60 * 60 * 1000; // 24h
     const CACHE_VERSION_KEY = "wplace_overlay_script_version";
@@ -143,7 +143,7 @@
         { lat: 52.0277, lng: 12.6946 },
         { lat: -24.0308, lng: -46.9558 },
         { lat: -23.6212, lng: -46.7563},
-        { lat: -23.6212, lng: -46.7563}
+        { lat: -24.1035, lng: -47.4807}
     ];
 
     function resetProgress() {
